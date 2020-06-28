@@ -25,6 +25,9 @@ type EmulatorMock struct {
 	audio chan []int16
 	input chan InputEvent
 
+	// draw canvas instance
+	canvas *image.RGBA
+
 	// selected emulator core meta
 	meta config.EmulatorMeta
 
@@ -40,6 +43,7 @@ type EmulatorPaths struct {
 	assets string
 	cores  string
 	games  string
+	save   string
 }
 
 // Returns a properly stubbed emulator instance.
@@ -71,6 +75,7 @@ func GetEmulatorMock(room string, system string) *EmulatorMock {
 
 	// global video output canvas
 	outputImg = image.NewRGBA(image.Rect(0, 0, emu.meta.Width, emu.meta.Height))
+	emu.canvas = outputImg
 
 	// global emulator instance
 	NAEmulator = &naEmulator{
@@ -84,6 +89,7 @@ func GetEmulatorMock(room string, system string) *EmulatorMock {
 		lock:           &sync.Mutex{},
 	}
 	emu.instance = NAEmulator
+	emu.paths.save = cleanPath(NAEmulator.GetHashPath())
 
 	return emu
 }
@@ -102,15 +108,15 @@ func GetDefaultEmulatorMock(room string, system string, rom string) *EmulatorMoc
 
 // Load a rom into the emulator.
 // The rom will be loaded from emulators' games path.
-func (emu EmulatorMock) loadRom(game string) {
+func (emu *EmulatorMock) loadRom(game string) {
 	fmt.Printf("%v %v\n", emu.paths.cores, emu.core)
 	coreLoad(emu.paths.cores+emu.core, false, false, "")
 	coreLoadGame(emu.paths.games + game)
 }
 
 // Close the emulator and cleanup its resources.
-func (emu EmulatorMock) shutdownEmulator() {
-	_ = os.Remove(getLatestSave())
+func (emu *EmulatorMock) shutdownEmulator() {
+	_ = os.Remove(emu.instance.GetHashPath())
 
 	close(emu.image)
 	close(emu.audio)
@@ -120,48 +126,63 @@ func (emu EmulatorMock) shutdownEmulator() {
 }
 
 // Emulate one frame with exclusive lock.
-func (emu EmulatorMock) emulateOneFrame() {
-	NAEmulator.GetLock()
+func (emu *EmulatorMock) emulateOneFrame() {
+	emu.instance.GetLock()
 	nanoarchRun()
-	NAEmulator.ReleaseLock()
+	emu.instance.ReleaseLock()
 }
 
 // Who needs generics anyway?
 // Custom handler for the video channel.
-func (emu EmulatorMock) handleVideo(handler func(image GameFrame)) {
+func (emu *EmulatorMock) handleVideo(handler func(image GameFrame)) {
 	for frame := range emu.image {
 		handler(frame)
 	}
 }
 
 // Custom handler for the audio channel.
-func (emu EmulatorMock) handleAudio(handler func(sample []int16)) {
+func (emu *EmulatorMock) handleAudio(handler func(sample []int16)) {
 	for frame := range emu.audio {
 		handler(frame)
 	}
 }
 
 // Custom handler for the input channel.
-func (emu EmulatorMock) handleInput(handler func(event InputEvent)) {
+func (emu *EmulatorMock) handleInput(handler func(event InputEvent)) {
 	for event := range emu.input {
 		handler(event)
 	}
 }
 
+// Returns the full path to the emulator latest save.
+func (emu *EmulatorMock) getSavePath() string {
+	return cleanPath(emu.instance.GetHashPath())
+}
+
 // Returns the current emulator state and
 // the latest saved state for its session.
 // Locks the emulator.
-func (emu EmulatorMock) dumpState() (string, string) {
-	NAEmulator.GetLock()
+func (emu *EmulatorMock) dumpState() (string, string) {
 
-	state, _ := getState()
-	stateHash := getHash(state)
-	persistedStateHash := getSaveHash()
+	emu.instance.GetLock()
+	bytes, _ := ioutil.ReadFile(emu.paths.save)
+	persistedStateHash := getHash(bytes)
+	emu.instance.ReleaseLock()
 
+	stateHash := emu.getStateHash()
 	fmt.Printf("mem: %v, dat: %v\n", stateHash, persistedStateHash)
 
-	NAEmulator.ReleaseLock()
 	return stateHash, persistedStateHash
+}
+
+// Returns the current emulator state hash.
+// Locks the emulator.
+func (emu *EmulatorMock) getStateHash() string {
+	emu.instance.GetLock()
+	state, _ := getState()
+	emu.instance.ReleaseLock()
+
+	return getHash(state)
 }
 
 // Returns absolute path to the assets directory.
@@ -174,17 +195,6 @@ func getAssetsPath() string {
 	)
 
 	return basePath
-}
-
-// Returns the full path to the emulator latest save.
-func getLatestSave() string {
-	return cleanPath(NAEmulator.GetHashPath())
-}
-
-// Returns latest save hash.
-func getSaveHash() string {
-	bytes, _ := ioutil.ReadFile(getLatestSave())
-	return getHash(bytes)
 }
 
 // Returns MD5 hash.

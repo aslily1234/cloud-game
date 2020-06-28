@@ -178,7 +178,7 @@ func TestStateConcurrency(t *testing.T) {
 
 		rand.Seed(int64(test.seed))
 		t.Logf("'Random' seed is [%v]\n", test.seed)
-		t.Logf("Save path is [%v]\n", getLatestSave())
+		t.Logf("Save path is [%v]\n", mock.paths.save)
 
 		//start := time.Now()
 		//elapsed := time.Since(start)
