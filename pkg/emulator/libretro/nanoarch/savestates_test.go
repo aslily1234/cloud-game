@@ -44,7 +44,7 @@ func TestSave(t *testing.T) {
 
 		fmt.Printf("[%-14v] ", "before save")
 		snapshot1, _ := mock.dumpState()
-		if err := NAEmulator.Save(); err != nil {
+		if err := mock.instance.Save(); err != nil {
 			t.Errorf("Save fail %v", err)
 		}
 		fmt.Printf("[%-14v] ", "after  save")
@@ -102,7 +102,7 @@ func TestLoad(t *testing.T) {
 		fmt.Printf("[%-14v] ", fmt.Sprintf("emulated %d", test.emulationTicks))
 		mock.dumpState()
 
-		if err := NAEmulator.Save(); err != nil {
+		if err := mock.instance.Save(); err != nil {
 			t.Errorf("Save fail %v", err)
 		}
 		fmt.Printf("[%-14v] ", "saved")
@@ -114,7 +114,7 @@ func TestLoad(t *testing.T) {
 		fmt.Printf("[%-14v] ", fmt.Sprintf("emulated %d", test.emulationTicks))
 		mock.dumpState()
 
-		if err := NAEmulator.Load(); err != nil {
+		if err := mock.instance.Load(); err != nil {
 			t.Errorf("Load fail %v", err)
 		}
 		fmt.Printf("[%-14v] ", "restored")
@@ -185,14 +185,14 @@ func TestStateConcurrency(t *testing.T) {
 		//t.Logf("Emulation of %v ticks has took %.2fs with %.2ffps\n",
 		//	test.run.emulationTicks, elapsed.Seconds(), float64(test.run.emulationTicks)/elapsed.Seconds())
 
-		_ = NAEmulator.Save()
+		_ = mock.instance.Save()
 
 		// 60 fps emulation cap
 		ticker := time.NewTicker(time.Second / time.Duration(test.fps))
 
 		for range ticker.C {
 			select {
-			case <-NAEmulator.done:
+			case <-mock.instance.done:
 				mock.shutdownEmulator()
 				return
 			default:
@@ -200,7 +200,7 @@ func TestStateConcurrency(t *testing.T) {
 
 			op++
 			if op > test.run.emulationTicks {
-				NAEmulator.Close()
+				mock.instance.Close()
 			}
 
 			qLock.Lock()
@@ -215,9 +215,9 @@ func TestStateConcurrency(t *testing.T) {
 
 					mock.dumpState()
 					// remove save to reproduce the bug
-					_ = NAEmulator.Save()
+					_ = mock.instance.Save()
 					_, snapshot1 := mock.dumpState()
-					_ = NAEmulator.Load()
+					_ = mock.instance.Load()
 					snapshot2, _ := mock.dumpState()
 
 					// Bug or feature?
@@ -226,7 +226,7 @@ func TestStateConcurrency(t *testing.T) {
 					// it won't be in the loaded state
 					// even without calling retro_run.
 					// But if you pause the threads with a debugger
-					// and execute everything with steps, then it works.
+					// and run the code step by step, then it will work as expected.
 					// Possible background emulation?
 
 					if snapshot1 != snapshot2 {

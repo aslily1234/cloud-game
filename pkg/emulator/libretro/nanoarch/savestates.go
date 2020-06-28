@@ -50,12 +50,12 @@ func restoreState(dat state) error {
 }
 
 // Writes the state to a file with the path.
-func (st state) toFile(path string) error {
-	return ioutil.WriteFile(path, st, 0644)
+func (st *state) toFile(path string) error {
+	return ioutil.WriteFile(path, *st, 0644)
 }
 
 // Reads the state from a file with the path.
-func (st state) fromFile(path string) (state, error) {
+func (st *state) fromFile(path string) (state, error) {
 	if bytes, err := ioutil.ReadFile(path); err == nil {
 		return bytes, nil
 	} else {

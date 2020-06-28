@@ -30,6 +30,9 @@ type EmulatorMock struct {
 
 	// shared core paths (can't be changed)
 	paths EmulatorPaths
+
+	// emulator instance
+	instance *naEmulator
 }
 
 // Defines various emulator file paths.
@@ -80,6 +83,7 @@ func GetEmulatorMock(room string, system string) *EmulatorMock {
 		done:           make(chan struct{}, 1),
 		lock:           &sync.Mutex{},
 	}
+	emu.instance = NAEmulator
 
 	return emu
 }
