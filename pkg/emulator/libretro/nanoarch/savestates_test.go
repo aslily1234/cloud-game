@@ -143,7 +143,7 @@ func TestStateConcurrency(t *testing.T) {
 				rom:            "Sushi The Cat.gba",
 				emulationTicks: 120,
 			},
-			fps: 60,
+			fps:  60,
 			seed: 42,
 		},
 		{
@@ -153,7 +153,7 @@ func TestStateConcurrency(t *testing.T) {
 				rom:            "anguna.gba",
 				emulationTicks: 300,
 			},
-			fps: 60,
+			fps:  60,
 			seed: 42 + 42,
 		},
 	}

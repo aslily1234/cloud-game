@@ -3,7 +3,6 @@ package nanoarch
 import (
 	"crypto/md5"
 	"fmt"
-	"github.com/giongto35/cloud-game/pkg/config"
 	"image"
 	"io/ioutil"
 	"os"
@@ -12,6 +11,8 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+
+	"github.com/giongto35/cloud-game/pkg/config"
 )
 
 // Emulator data mock.
