@@ -3,8 +3,10 @@ package nanoarch
 import (
 	"crypto/md5"
 	"fmt"
+	"github.com/giongto35/cloud-game/pkg/config"
 	"image"
 	"io/ioutil"
+	"log"
 	"os"
 	"path"
 	"path/filepath"
@@ -12,8 +14,6 @@ import (
 	"strings"
 	"sync"
 	"testing"
-
-	"github.com/giongto35/cloud-game/pkg/config"
 )
 
 // Emulator data mock.
@@ -201,7 +201,22 @@ func cleanPath(path string) string {
 	return filepath.FromSlash(path)
 }
 
-func BenchmarkEmulators(b *testing.B) {
+// Measure emulator performance for one emulation frame.
+func benchmarkEmulator(system string, rom string, b *testing.B) {
+	log.SetOutput(ioutil.Discard)
+	os.Stdout, _ = os.Open(os.DevNull)
+
+	s := GetDefaultEmulatorMock("bench_"+system+"_performance", system, rom)
 	for i := 0; i < b.N; i++ {
+		s.emulateOneFrame()
 	}
+	s.shutdownEmulator()
+}
+
+func BenchmarkEmulatorGba(b *testing.B) {
+	benchmarkEmulator("gba", "Sushi The Cat.gba", b)
+}
+
+func BenchmarkEmulatorNes(b *testing.B) {
+	benchmarkEmulator("nes", "Super Mario Bros.nes", b)
 }
