@@ -201,39 +201,39 @@ func TestStateConcurrency(t *testing.T) {
 			op++
 			if op > test.run.emulationTicks {
 				mock.Close()
-			}
+			} else {
+				qLock.Lock()
+				mock.emulateOneFrame()
+				qLock.Unlock()
 
-			qLock.Lock()
-			mock.emulateOneFrame()
-			qLock.Unlock()
+				if lucky() && !lucky() {
+					ops.Add(1)
+					go func() {
+						qLock.Lock()
+						defer qLock.Unlock()
 
-			if lucky() && !lucky() {
-				ops.Add(1)
-				go func() {
-					qLock.Lock()
-					defer qLock.Unlock()
+						mock.dumpState()
+						// remove save to reproduce the bug
+						_ = mock.Save()
+						_, snapshot1 := mock.dumpState()
+						_ = mock.Load()
+						snapshot2, _ := mock.dumpState()
 
-					mock.dumpState()
-					// remove save to reproduce the bug
-					_ = mock.Save()
-					_, snapshot1 := mock.dumpState()
-					_ = mock.Load()
-					snapshot2, _ := mock.dumpState()
+						// Bug or feature?
+						// When you load a state from the file
+						// without immediate preceding save,
+						// it won't be in the loaded state
+						// even without calling retro_run.
+						// But if you pause the threads with a debugger
+						// and run the code step by step, then it will work as expected.
+						// Possible background emulation?
 
-					// Bug or feature?
-					// When you load a state from the file
-					// without immediate preceding save,
-					// it won't be in the loaded state
-					// even without calling retro_run.
-					// But if you pause the threads with a debugger
-					// and run the code step by step, then it will work as expected.
-					// Possible background emulation?
-
-					if snapshot1 != snapshot2 {
-						t.Errorf("States are inconsistent %v != %v on tick %v\n", snapshot1, snapshot2, op)
-					}
-					ops.Done()
-				}()
+						if snapshot1 != snapshot2 {
+							t.Errorf("States are inconsistent %v != %v on tick %v\n", snapshot1, snapshot2, op)
+						}
+						ops.Done()
+					}()
+				}
 			}
 		}
 
