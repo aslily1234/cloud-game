@@ -180,11 +180,6 @@ func TestStateConcurrency(t *testing.T) {
 		t.Logf("'Random' seed is [%v]\n", test.seed)
 		t.Logf("Save path is [%v]\n", mock.paths.save)
 
-		//start := time.Now()
-		//elapsed := time.Since(start)
-		//t.Logf("Emulation of %v ticks has took %.2fs with %.2ffps\n",
-		//	test.run.emulationTicks, elapsed.Seconds(), float64(test.run.emulationTicks)/elapsed.Seconds())
-
 		_ = mock.Save()
 
 		// 60 fps emulation cap

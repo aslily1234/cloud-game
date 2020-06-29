@@ -27,9 +27,8 @@ func (na *naEmulator) Load() error {
 	defer na.ReleaseLock()
 
 	path := na.GetHashPath()
-	if state, err := (&state{}).fromFile(path); err == nil {
-		st := restoreState(state)
-		return st
+	if state, err := fromFile(path); err == nil {
+		return restoreState(state)
 	} else {
 		return err
 	}
@@ -55,7 +54,7 @@ func (st state) toFile(path string) error {
 }
 
 // Reads the state from a file with the path.
-func (st state) fromFile(path string) (state, error) {
+func fromFile(path string) (state, error) {
 	if bytes, err := ioutil.ReadFile(path); err == nil {
 		return bytes, nil
 	} else {

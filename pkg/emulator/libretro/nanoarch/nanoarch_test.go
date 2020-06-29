@@ -11,6 +11,7 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"testing"
 
 	"github.com/giongto35/cloud-game/pkg/config"
 )
@@ -41,7 +42,7 @@ type EmulatorPaths struct {
 }
 
 // Returns a properly stubbed emulator instance.
-// Due to extensive use globals, it should exist in one instance per a test run.
+// Due to extensive use of globals -- one mock instance is allowed per a test run.
 // Don't forget to init one image channel consumer, it will lock-out otherwise.
 // Make sure you call shutdownEmulator().
 func GetEmulatorMock(room string, system string) *EmulatorMock {
@@ -198,4 +199,9 @@ func getHash(bytes []byte) string {
 // Returns a proper file path for current OS.
 func cleanPath(path string) string {
 	return filepath.FromSlash(path)
+}
+
+func BenchmarkEmulators(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+	}
 }
