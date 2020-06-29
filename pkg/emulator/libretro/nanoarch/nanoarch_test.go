@@ -17,25 +17,19 @@ import (
 
 // Emulator data mock.
 type EmulatorMock struct {
+	naEmulator
+
 	// Libretro compiled lib core name
 	core string
-
-	// hardcoded emulator channels
-	image chan GameFrame
-	audio chan []int16
-	input chan InputEvent
-
 	// draw canvas instance
 	canvas *image.RGBA
-
-	// selected emulator core meta
-	meta config.EmulatorMeta
-
 	// shared core paths (can't be changed)
 	paths EmulatorPaths
 
-	// emulator instance
-	instance *naEmulator
+	// channels
+	imageInCh  <-chan GameFrame
+	audioInCh  <-chan []int16
+	inputOutCh chan<- InputEvent
 }
 
 // Defines various emulator file paths.
@@ -47,49 +41,50 @@ type EmulatorPaths struct {
 }
 
 // Returns a properly stubbed emulator instance.
-// Be aware that it extensively uses global variables and
-// it should exist in one instance per a test run.
-// Don't forget to add at least one image channel consumer
-// since it will lock your thread otherwise.
-// Don't forget to close emulator mock with shutdownEmulator().
+// Due to extensive use globals, it should exist in one instance per a test run.
+// Don't forget to init one image channel consumer, it will lock-out otherwise.
+// Make sure you call shutdownEmulator().
 func GetEmulatorMock(room string, system string) *EmulatorMock {
 	assetsPath := getAssetsPath()
 	metadata := config.EmulatorConfig[system]
 
+	images := make(chan GameFrame, 30)
+	audio := make(chan []int16, 30)
+	inputs := make(chan InputEvent, 100)
+
 	// an emu
 	emu := &EmulatorMock{
-		core: path.Base(metadata.Path),
+		naEmulator: naEmulator{
+			imageChannel: images,
+			audioChannel: audio,
+			inputChannel: inputs,
 
-		image: make(chan GameFrame, 30),
-		audio: make(chan []int16, 30),
-		input: make(chan InputEvent, 100),
+			meta:           metadata,
+			controllersMap: map[string][]controllerState{},
+			roomID:         room,
+			done:           make(chan struct{}, 1),
+			lock:           &sync.Mutex{},
+		},
 
-		meta: metadata,
+		canvas: image.NewRGBA(image.Rect(0, 0, metadata.Width, metadata.Height)),
+		core:   path.Base(metadata.Path),
 
 		paths: EmulatorPaths{
 			assets: cleanPath(assetsPath),
 			cores:  cleanPath(assetsPath + "emulator/libretro/cores/"),
 			games:  cleanPath(assetsPath + "games/"),
 		},
+
+		imageInCh:  images,
+		audioInCh:  audio,
+		inputOutCh: inputs,
 	}
 
-	// global video output canvas
-	outputImg = image.NewRGBA(image.Rect(0, 0, emu.meta.Width, emu.meta.Height))
-	emu.canvas = outputImg
+	// stub globals
+	NAEmulator = &emu.naEmulator
+	outputImg = emu.canvas
 
-	// global emulator instance
-	NAEmulator = &naEmulator{
-		meta:           emu.meta,
-		imageChannel:   emu.image,
-		audioChannel:   emu.audio,
-		inputChannel:   emu.input,
-		controllersMap: map[string][]controllerState{},
-		roomID:         room,
-		done:           make(chan struct{}, 1),
-		lock:           &sync.Mutex{},
-	}
-	emu.instance = NAEmulator
-	emu.paths.save = cleanPath(NAEmulator.GetHashPath())
+	emu.paths.save = cleanPath(emu.GetHashPath())
 
 	return emu
 }
@@ -116,71 +111,69 @@ func (emu *EmulatorMock) loadRom(game string) {
 
 // Close the emulator and cleanup its resources.
 func (emu *EmulatorMock) shutdownEmulator() {
-	_ = os.Remove(emu.instance.GetHashPath())
+	_ = os.Remove(emu.GetHashPath())
 
-	close(emu.image)
-	close(emu.audio)
-	close(emu.input)
+	close(emu.imageChannel)
+	close(emu.audioChannel)
+	close(emu.inputOutCh)
 
 	nanoarchShutdown()
 }
 
 // Emulate one frame with exclusive lock.
 func (emu *EmulatorMock) emulateOneFrame() {
-	emu.instance.GetLock()
+	emu.GetLock()
 	nanoarchRun()
-	emu.instance.ReleaseLock()
+	emu.ReleaseLock()
 }
 
 // Who needs generics anyway?
 // Custom handler for the video channel.
 func (emu *EmulatorMock) handleVideo(handler func(image GameFrame)) {
-	for frame := range emu.image {
+	for frame := range emu.imageInCh {
 		handler(frame)
 	}
 }
 
 // Custom handler for the audio channel.
 func (emu *EmulatorMock) handleAudio(handler func(sample []int16)) {
-	for frame := range emu.audio {
+	for frame := range emu.audioInCh {
 		handler(frame)
 	}
 }
 
 // Custom handler for the input channel.
 func (emu *EmulatorMock) handleInput(handler func(event InputEvent)) {
-	for event := range emu.input {
+	for event := range emu.inputChannel {
 		handler(event)
 	}
 }
 
 // Returns the full path to the emulator latest save.
 func (emu *EmulatorMock) getSavePath() string {
-	return cleanPath(emu.instance.GetHashPath())
+	return cleanPath(emu.GetHashPath())
 }
 
 // Returns the current emulator state and
 // the latest saved state for its session.
 // Locks the emulator.
 func (emu *EmulatorMock) dumpState() (string, string) {
-
-	emu.instance.GetLock()
+	emu.GetLock()
 	bytes, _ := ioutil.ReadFile(emu.paths.save)
 	persistedStateHash := getHash(bytes)
-	emu.instance.ReleaseLock()
+	emu.ReleaseLock()
 
 	stateHash := emu.getStateHash()
 	fmt.Printf("mem: %v, dat: %v\n", stateHash, persistedStateHash)
-
 	return stateHash, persistedStateHash
 }
 
 // Returns the current emulator state hash.
 // Locks the emulator.
 func (emu *EmulatorMock) getStateHash() string {
-	emu.instance.GetLock()
+	emu.GetLock()
 	state, _ := getState()
-	emu.instance.ReleaseLock()
+	emu.ReleaseLock()
 
 	return getHash(state)
 }

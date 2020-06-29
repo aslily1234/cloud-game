@@ -44,7 +44,7 @@ func TestSave(t *testing.T) {
 
 		fmt.Printf("[%-14v] ", "before save")
 		snapshot1, _ := mock.dumpState()
-		if err := mock.instance.Save(); err != nil {
+		if err := mock.Save(); err != nil {
 			t.Errorf("Save fail %v", err)
 		}
 		fmt.Printf("[%-14v] ", "after  save")
@@ -102,7 +102,7 @@ func TestLoad(t *testing.T) {
 		fmt.Printf("[%-14v] ", fmt.Sprintf("emulated %d", test.emulationTicks))
 		mock.dumpState()
 
-		if err := mock.instance.Save(); err != nil {
+		if err := mock.Save(); err != nil {
 			t.Errorf("Save fail %v", err)
 		}
 		fmt.Printf("[%-14v] ", "saved")
@@ -114,7 +114,7 @@ func TestLoad(t *testing.T) {
 		fmt.Printf("[%-14v] ", fmt.Sprintf("emulated %d", test.emulationTicks))
 		mock.dumpState()
 
-		if err := mock.instance.Load(); err != nil {
+		if err := mock.Load(); err != nil {
 			t.Errorf("Load fail %v", err)
 		}
 		fmt.Printf("[%-14v] ", "restored")
@@ -185,14 +185,14 @@ func TestStateConcurrency(t *testing.T) {
 		//t.Logf("Emulation of %v ticks has took %.2fs with %.2ffps\n",
 		//	test.run.emulationTicks, elapsed.Seconds(), float64(test.run.emulationTicks)/elapsed.Seconds())
 
-		_ = mock.instance.Save()
+		_ = mock.Save()
 
 		// 60 fps emulation cap
 		ticker := time.NewTicker(time.Second / time.Duration(test.fps))
 
 		for range ticker.C {
 			select {
-			case <-mock.instance.done:
+			case <-mock.done:
 				mock.shutdownEmulator()
 				return
 			default:
@@ -200,7 +200,7 @@ func TestStateConcurrency(t *testing.T) {
 
 			op++
 			if op > test.run.emulationTicks {
-				mock.instance.Close()
+				mock.Close()
 			}
 
 			qLock.Lock()
@@ -215,9 +215,9 @@ func TestStateConcurrency(t *testing.T) {
 
 					mock.dumpState()
 					// remove save to reproduce the bug
-					_ = mock.instance.Save()
+					_ = mock.Save()
 					_, snapshot1 := mock.dumpState()
-					_ = mock.instance.Load()
+					_ = mock.Load()
 					snapshot2, _ := mock.dumpState()
 
 					// Bug or feature?
