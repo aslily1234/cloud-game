@@ -3,7 +3,6 @@ package nanoarch
 import (
 	"crypto/md5"
 	"fmt"
-	"github.com/giongto35/cloud-game/pkg/config"
 	"image"
 	"io/ioutil"
 	"log"
@@ -14,6 +13,8 @@ import (
 	"strings"
 	"sync"
 	"testing"
+
+	"github.com/giongto35/cloud-game/pkg/config"
 )
 
 // Emulator data mock.
@@ -182,13 +183,9 @@ func (emu *EmulatorMock) getStateHash() string {
 // Returns absolute path to the assets directory.
 func getAssetsPath() string {
 	appName := "cloud-game"
-	var (
-		// get app path at runtime
-		_, b, _, _ = runtime.Caller(0)
-		basePath   = filepath.Dir(strings.SplitAfter(b, appName)[0]) + "/" + appName + "/assets/"
-	)
-
-	return basePath
+	// get app path at runtime
+	_, b, _, _ := runtime.Caller(0)
+	return filepath.Dir(strings.SplitAfter(b, appName)[0]) + "/" + appName + "/assets/"
 }
 
 // Returns MD5 hash.
